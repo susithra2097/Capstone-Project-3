@@ -60,16 +60,128 @@ with st.sidebar:
     select_option = option_menu("Main Menu", ["Home", "Upload & Save", "Modify", "Delete"])
 
 if select_option == "Home":
-    # Existing code for the Home section
-    pass
+    st.markdown("### :blue[**Technologies Used :**] Python,easy OCR, Streamlit, SQL, Pandas")
+
+    st.write(
+            "### :green[**About :**] Bizcard is a Python application designed to extract information from business cards.")
+    st.write(
+            '### The main purpose of Bizcard is to automate the process of extracting key details from business card images, such as the name, designation, company, contact information, and other relevant data. By leveraging the power of OCR (Optical Character Recognition) provided by EasyOCR, Bizcard is able to extract text from the images.')
+
 
 elif select_option == "Upload & Save":
-    # Existing code for the Upload & Save section
-    pass
+    img = st.file_uploader("Upload the Image", type= ["png","jpg","jpeg"])
+
+    if img is not None:
+        st.image(img, width= 300)
+
+        text_image, input_img= image_to_text(img)
+
+        text_dict = extracted_text(text_image)
+
+        if text_dict:
+            st.success("TEXT IS EXTRACTED SUCCESSFULLY")
+
+            df= pd.DataFrame(text_dict)
+
+            #Converting Image to Bytes
+
+            Image_bytes = io.BytesIO()
+            input_img.save(Image_bytes, format= "PNG")
+
+            image_data = Image_bytes.getvalue()
+
+            #Creating Dictionary
+            data = {"IMAGE":[image_data]}
+
+            df_1 = pd.DataFrame(data)
+
+            concat_df = pd.concat([df,df_1],axis= 1)
+
+            st.dataframe(concat_df)
+
+            button_1 = st.button("Save", use_container_width = True)
+
+            if button_1:
+
+                mydb = sqlite3.connect("bizcardx.db")
+                cursor = mydb.cursor()
+
+                #Table Creation
+
+                create_table_query = '''CREATE TABLE IF NOT EXISTS bizcard_details(name varchar(225),
+                                                                                    designation varchar(225),
+                                                                                    company_name varchar(225),
+                                                                                    contact varchar(225),
+                                                                                    email varchar(225),
+                                                                                    website text,
+                                                                                    address text,
+                                                                                    pincode varchar(225),
+                                                                                    image text)'''
+
+                cursor.execute(create_table_query)
+                mydb.commit()
+
+                # Insert Query
+
+                insert_query = '''INSERT INTO bizcard_details(name, designation, company_name,contact, email, website, address,
+                                                                pincode, image)
+
+                                                                values(?,?,?,?,?,?,?,?,?)'''
+
+                datas = concat_df.values.tolist()[0]
+                cursor.execute(insert_query,datas)
+                mydb.commit()
+
+                st.success("SAVED SUCCESSFULLY")
+
+        
+
 
 elif select_option == "Delete":
-    # Existing code for the Delete section
-    pass
+    mydb = sqlite3.connect("bizcardx.db")
+    cursor = mydb.cursor()
+
+    col1,col2 = st.columns(2)
+    with col1:
+
+        select_query = "SELECT NAME FROM bizcard_details"
+
+        cursor.execute(select_query)
+        table1 = cursor.fetchall()
+        mydb.commit()
+
+        names = []
+
+        for i in table1:
+            names.append(i[0])
+
+        name_select = st.selectbox("Select the name", names)
+
+    with col2:
+
+        select_query = f"SELECT DESIGNATION FROM bizcard_details WHERE NAME ='{name_select}'"
+
+        cursor.execute(select_query)
+        table2 = cursor.fetchall()
+        mydb.commit()
+
+        designations = []
+
+        for j in table2:
+            designations.append(j[0])
+
+        designation_select = st.selectbox("Select the designation", options = designations)
+
+    if name_select and designation_select:
+
+        remove = st.button("Delete", use_container_width= True)
+
+        if remove:
+
+            cursor.execute(f"DELETE FROM bizcard_details WHERE NAME ='{name_select}' AND DESIGNATION = '{designation_select}'")
+            mydb.commit()
+
+            st.warning("DELETED")
 
 elif select_option == "Modify":
     mydb = sqlite3.connect("bizcardx.db")
